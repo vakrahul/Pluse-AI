@@ -1,4 +1,4 @@
-# PulseIQ — Healthcare GenAI Analytics Copilot
+# PulseIQ
 
 PulseIQ is a production-grade, enterprise analytics copilot for pharmaceutical and healthcare commercial teams. It connects governed sales data, prescriber networks, and compliance knowledge into a single natural-language interface powered by a multi-agent LangGraph pipeline.
 
