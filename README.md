@@ -8,22 +8,27 @@ PulseIQ is a production-grade, enterprise analytics copilot for pharmaceutical a
 
 ```mermaid
 flowchart TD
-    User([User - Field Rep / Manager / Analyst])
-    UI[Next.js Frontend\nChat + Dashboard]
+    User(["User\nField Rep / Manager / Analyst / Med Affairs"])
+    UI["Next.js 14 Frontend\nChat Interface + Live Dashboard\nRole-based views + Recharts"]
 
-    User -->|Natural language question| UI
-    UI -->|POST /api/v1/chat| API
+    User -->|"Natural language question"| UI
+    UI -->|"POST /api/v1/chat\nJSON body: question + role"| API
 
-    subgraph Backend [FastAPI Backend - LangGraph Pipeline]
+    subgraph Backend ["FastAPI Backend — LangGraph Multi-Agent Pipeline"]
         direction TB
-        API[Chat API\nbackend/api/v1/chat.py]
-        Intent[Intent Agent\nClassifies: analytics / graph / knowledge / hybrid]
-        Planner[Query Planner\nBuilds execution plan]
-        SQL[SQL Agent\nLLM-powered Cube.js query builder]
-        Graph[Graph Agent\nNeo4j Cypher query executor]
-        RAG[RAG Agent\nChromaDB semantic retrieval]
-        Validation[Validation Agent\nGuardrails - schema + injection check]
-        Response[Response Agent\nStructured executive summary synthesis]
+        API["Chat API\nbackend/api/v1/chat.py\nRequest validation + session routing"]
+        Intent["Intent Agent\nClassifies: analytics / graph / knowledge / hybrid\nExtracts: city, specialty, tier, hcp_name, metric, limit"]
+        Planner["Query Planner\nBuilds ordered execution plan\nRoutes to one or more agent nodes"]
+
+        subgraph Agents ["Parallel Agent Nodes"]
+            direction LR
+            SQL["SQL Agent\nLLM builds Cube.js JSON query\nFalls back to keyword rules\nFixes date ranges automatically"]
+            Graph["Graph Agent\nNeo4j Cypher executor\nReferral network traversal\nKOL influence scoring"]
+            RAG["RAG Agent\nChromaDB cosine search\nPolicy + glossary retrieval\nTop-3 chunk context"]
+        end
+
+        Validation["Validation Agent\nCube schema guardrails\nPrompt injection detection\nAPI error passthrough"]
+        Response["Response Agent\nCerebras gpt-oss-120b synthesis\nExecutive Summary format\nSource attribution + confidence"]
 
         API --> Intent
         Intent --> Planner
@@ -36,18 +41,20 @@ flowchart TD
         Validation --> Response
     end
 
-    subgraph DataLayer [Data Layer]
-        Cube[Cube.js Semantic Layer\nPre-aggregations + governed metrics]
-        PG[(PostgreSQL\ndim + fact schemas\n1,000 HCPs / 125K rows)]
-        Neo4j[(Neo4j Graph DB\nReferral networks\nHCP influence maps)]
-        Chroma[(ChromaDB\nRAG knowledge base\nPolicies + glossary)]
-        LLM[Cerebras LLM API\n5-key rotation pool\nllama-3.3-70b]
+    subgraph DataLayer ["Data Layer"]
+        direction LR
+        Cube["Cube.js v0.35\nSemantic Layer\nPre-aggregations\nGoverned metrics registry"]
+        PG[("PostgreSQL 15\ndim schema: HCP, Product, Territory\nfact schema: Sales, Rx, Interactions\n1,000 HCPs / 125K fact rows")]
+        Neo4j[("Neo4j 5.x\nHCP referral graph\nSalesRep visit graph\nProduct prescription graph")]
+        Chroma[("ChromaDB\nRAG collections: glossary / compliance / segmentation\n7 policy documents / 60+ chunks")]
+        LLM["Cerebras API\ngpt-oss-120b\n5-key rotation pool\nExponential backoff on 429"]
     end
 
-    SQL -->|Cube REST API| Cube
+    SQL -->|"Cube REST API\n/cubejs-api/v1/load"| Cube
     Cube --> PG
-    Graph -->|Bolt protocol| Neo4j
-    RAG -->|Embedding search| Chroma
+    Graph -->|"Bolt bolt://localhost:7687"| Neo4j
+    RAG -->|"Cosine similarity search"| Chroma
+    Response -->|"LLM synthesis"| LLM
     Response -->|LLM synthesis| LLM
 
     Response --> API
@@ -183,49 +190,47 @@ Documents ingested into ChromaDB at startup:
 ### 1. Environment
 
 ```bash
-cp .env.example .env
-# Edit .env and add your CEREBRAS_API_KEYS (comma-separated pool)
+copy .env.example .env
+# Edit .env — add CEREBRAS_API_KEYS as a comma-separated pool of gpt-oss-120b keys
 ```
 
-### 2. Start infrastructure
+### 2. Start Docker (Postgres, Cube, Redis, Neo4j)
 
 ```bash
 docker compose -f infrastructure/docker/docker-compose.yml up -d
 ```
 
-### 3. Load data
+### 3. Generate and load data
 
 ```bash
-cd data/seed
+cd data\seed
+pip install -r requirements.txt
 python generate_synthetic_data.py
 python load_to_postgres.py
+```
 
-cd ../neo4j
+### 4. Verify Cube
+
+```bash
+cd ..\..
+python scripts\test_cube.py
+```
+
+### 5. Load Neo4j graph
+
+```bash
+cd data\neo4j
+pip install -r requirements.txt
 python load_graph.py
-```
-
-### 4. Ingest RAG knowledge
-
-```bash
-python -c "
-import sys; sys.path.insert(0, '.')
-from backend.rag.chroma_client import chroma_rag
-chroma_rag.ingest_all(force=True)
-"
-```
-
-### 5. Start Cube.js
-
-```bash
-cd cube
-npm install
-npm run dev
 ```
 
 ### 6. Start backend
 
 ```bash
-pip install -r backend/requirements.txt
+cd ..\..
+pip install -r backend\requirements.txt
+$env:PYTHONPATH = "C:\Users\YourUser\rags"
+python backend\scripts\ingest_rag.py
 uvicorn backend.main:app --reload --port 8000
 ```
 
@@ -238,6 +243,27 @@ npm run dev
 ```
 
 Open http://localhost:3000
+
+---
+
+## Endpoints
+
+| URL | Purpose |
+|---|---|
+| http://localhost:4000 | Cube Playground |
+| http://localhost:8000/docs | FastAPI interactive docs |
+| http://localhost:8000/api/v1/health/cube | Cube health check |
+| http://localhost:8000/api/v1/health/neo4j | Neo4j health check |
+| http://localhost:8000/api/v1/health/rag | ChromaDB RAG health check |
+| POST /api/v1/chat | Full LangGraph agent pipeline |
+
+### Sample chat request
+
+```bash
+curl -X POST http://localhost:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Show top 10 cardiologists in Bangalore by prescription volume", "role": "sales_rep"}'
+```
 
 ---
 
