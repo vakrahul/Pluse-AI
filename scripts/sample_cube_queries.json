@@ -1,0 +1,101 @@
+{
+  "queries": [
+    {
+      "description": "Total net sales across all products",
+      "query": {
+        "measures": ["SalesFact.totalSales"]
+      }
+    },
+    {
+      "description": "Top cardiologists in Bangalore by sales",
+      "query": {
+        "measures": ["SalesFact.hcpPerformance"],
+        "dimensions": ["HcpMaster.fullName", "HcpMaster.specialty", "HcpMaster.city", "HcpMaster.tier"],
+        "filters": [
+          {"member": "HcpMaster.specialty", "operator": "equals", "values": ["Cardiology"]},
+          {"member": "HcpMaster.city", "operator": "equals", "values": ["Bangalore"]}
+        ],
+        "order": {"SalesFact.hcpPerformance": "desc"},
+        "limit": 10
+      }
+    },
+    {
+      "description": "Monthly sales trend for diabetes products",
+      "query": {
+        "measures": ["SalesFact.totalSales"],
+        "timeDimensions": [
+          {"dimension": "SalesFact.saleDate", "granularity": "month", "dateRange": "last 24 months"}
+        ],
+        "filters": [
+          {"member": "ProductMaster.therapeuticArea", "operator": "equals", "values": ["Diabetes"]}
+        ],
+        "order": {"SalesFact.saleDate": "asc"}
+      }
+    },
+    {
+      "description": "Territory performance ranking",
+      "query": {
+        "measures": ["SalesFact.territoryPerformance"],
+        "dimensions": ["TerritoryMaster.territoryName", "TerritoryMaster.region"],
+        "order": {"SalesFact.territoryPerformance": "desc"},
+        "limit": 20
+      }
+    },
+    {
+      "description": "Product performance by therapeutic area",
+      "query": {
+        "measures": ["SalesFact.productPerformance"],
+        "dimensions": ["ProductMaster.productName", "ProductMaster.therapeuticArea"],
+        "order": {"SalesFact.productPerformance": "desc"},
+        "limit": 15
+      }
+    },
+    {
+      "description": "Prescription count by HCP tier",
+      "query": {
+        "measures": ["PrescriptionFact.prescriptionCount"],
+        "dimensions": ["HcpMaster.tier"],
+        "order": {"PrescriptionFact.prescriptionCount": "desc"}
+      }
+    },
+    {
+      "description": "Gold HCP count by specialty",
+      "query": {
+        "measures": ["HcpMaster.count"],
+        "dimensions": ["HcpMaster.specialty", "HcpMaster.tier"],
+        "filters": [
+          {"member": "HcpMaster.tier", "operator": "equals", "values": ["Gold"]}
+        ],
+        "order": {"HcpMaster.count": "desc"}
+      }
+    },
+    {
+      "description": "Rep interactions by type and outcome",
+      "query": {
+        "measures": ["InteractionFact.count", "InteractionFact.avgDurationMinutes"],
+        "dimensions": ["InteractionFact.interactionType", "InteractionFact.outcome"]
+      }
+    },
+    {
+      "description": "Quarterly sales for chart generation",
+      "query": {
+        "measures": ["SalesFact.totalSales", "SalesFact.unitsSold"],
+        "timeDimensions": [
+          {"dimension": "SalesFact.saleDate", "granularity": "quarter", "dateRange": "last 8 quarters"}
+        ],
+        "order": {"SalesFact.saleDate": "asc"}
+      }
+    },
+    {
+      "description": "Compare products in Cardiology therapeutic area",
+      "query": {
+        "measures": ["SalesFact.totalSales"],
+        "dimensions": ["ProductMaster.productName"],
+        "filters": [
+          {"member": "ProductMaster.therapeuticArea", "operator": "equals", "values": ["Cardiology"]}
+        ],
+        "order": {"SalesFact.totalSales": "desc"}
+      }
+    }
+  ]
+}

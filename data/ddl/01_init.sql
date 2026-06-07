@@ -1,0 +1,8 @@
+-- Healthcare Analytics - Schemas and Roles
+CREATE SCHEMA IF NOT EXISTS dim;
+CREATE SCHEMA IF NOT EXISTS fact;
+CREATE SCHEMA IF NOT EXISTS staging;
+CREATE SCHEMA IF NOT EXISTS audit;
+CREATE SCHEMA IF NOT EXISTS meta;
+
+GRANT USAGE ON SCHEMA dim, fact, staging, audit, meta TO PUBLIC;

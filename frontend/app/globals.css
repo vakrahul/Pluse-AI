@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+}
+
+body {
+  @apply bg-clinical-bg text-clinical-ink antialiased;
+  font-family: var(--font-sans);
+}
+
+/* ── Utilities ────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .grid-clinical {
+    background-image:
+      linear-gradient(rgba(13, 148, 136, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13, 148, 136, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+  .stagger-4 { animation-delay: 0.4s; }
+  .stagger-5 { animation-delay: 0.5s; }
+}
+
+/* ── Reusable card ────────────────────────────────────────────────────────── */
+@layer components {
+  .chart-card {
+    @apply rounded-2xl border border-clinical-border bg-white p-5 shadow-sm transition hover:shadow-md;
+  }
+
+  .kpi-skeleton {
+    @apply h-8 w-28 animate-pulse rounded-lg bg-slate-100;
+  }
+}
+
+/* ── Chat scrollbar ────────────────────────────────────────────────────────── */
+.chat-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-200;
+}
+
+/* ── Landing shimmer flash ────────────────────────────────────────────────── */
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-100%) skewX(-15deg); opacity: 0; }
+  40%  { opacity: 0.6; }
+  100% { transform: translateX(220%) skewX(-15deg); opacity: 0; }
+}
+
+.landing-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.landing-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.04) 50%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 4s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+/* ── Recharts label tweaks ────────────────────────────────────────────────── */
+.recharts-cartesian-axis-tick-value {
+  font-family: var(--font-sans);
+}
+
+.recharts-legend-wrapper {
+  font-family: var(--font-sans) !important;
+}
