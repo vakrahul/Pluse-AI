@@ -25,7 +25,7 @@ async def run_chat(question: str, session_id: str | None = None, user_role: str 
         "answer": result.get("final_answer", ""),
         "data": result.get("query_results", []),
         "graph_data": result.get("graph_results", []),
-        "chart": result.get("chart_spec"),
+        "chart": result.get("chart_recommendation"),
         "cube_query": result.get("cube_query"),
         "sources": result.get("sources", []),
         "validation": result.get("validation_status"),

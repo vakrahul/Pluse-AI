@@ -1,50 +1,53 @@
-"""Graph agent — executes Neo4j Cypher via templates."""
+"""Graph agent — MCO hierarchy traversal via Neo4j (Payer360)."""
 
 from __future__ import annotations
 
+import logging
+
 from backend.agents.state import AgentState
-from backend.graph.cypher_templates import TEMPLATES, validate_cypher
+from backend.graph.cypher_templates import select_template, validate_cypher
 from backend.graph.neo4j_client import neo4j_client
+
+logger = logging.getLogger(__name__)
 
 
 async def graph_node(state: AgentState) -> AgentState:
-    question = state["question"].lower()
+    """
+    Handles 'hierarchy' intent:
+      - Show MCO hierarchy for Aetna
+      - Who is the parent of BlueCross?
+      - What child plans does UHC own?
+      - What benefit types exist under Cigna?
+    """
+    question = state["question"]
     entities = state.get("entities", {})
-    plan = state.get("plan", [])
-
-    template_key = "top_referrers"
-    params: dict = {"limit": 10}
-
-    for step in plan:
-        if step.get("agent") == "graph":
-            action = step.get("action", "")
-            if action == "referral_network" and entities.get("hcp_name"):
-                template_key = "referral_network"
-                params = {"hcp_name": entities["hcp_name"]}
-            elif "influence" in question or "largest" in question:
-                template_key = "influence_network"
-                params = {"limit": 10}
-            break
-
-    if "influence" in question or "largest referral" in question:
-        template_key = "influence_network"
-        params = {"limit": 10}
-
-    template = TEMPLATES[template_key]
-    cypher = template["cypher"]
-
-    if not validate_cypher(cypher):
-        return {**state, "error": "Invalid Cypher blocked by validator"}
 
     try:
-        results = await neo4j_client.run(cypher, params)
-    except Exception as e:
-        return {**state, "cypher": cypher, "cypher_params": params, "graph_results": [], "error": str(e)}
+        cypher, params = select_template(question, entities)
 
-    return {
-        **state,
-        "cypher": cypher,
-        "cypher_params": params,
-        "graph_results": results,
-        "sources": state.get("sources", []) + [f"Neo4j: {template_key}"],
-    }
+        if not validate_cypher(cypher):
+            return {
+                **state,
+                "graph_results": [],
+                "error": "Cypher security validation failed",
+            }
+
+        results = await neo4j_client.run(cypher, params)
+        sources = [f"Neo4j: MCO Hierarchy ({len(results)} records)"]
+
+        logger.info("graph_node returned %d records for: %s", len(results), question)
+
+        return {
+            "cypher": cypher,
+            "cypher_params": params,
+            "graph_results": results,
+            "sources_used": sources,
+        }
+
+    except Exception as e:
+        logger.error("graph_node failed: %s", e)
+        return {
+            **state,
+            "graph_results": [],
+            "error": f"Neo4j query failed: {str(e)[:100]}",
+        }

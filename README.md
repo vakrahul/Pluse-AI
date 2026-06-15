@@ -22,40 +22,49 @@ flowchart TD
 
         subgraph Agents ["Parallel Agent Nodes"]
             direction LR
-            SQL["SQL Agent\nLLM builds Cube.js JSON query\nFalls back to keyword rules\nFixes date ranges automatically"]
-            Graph["Graph Agent\nNeo4j Cypher executor\nReferral network traversal\nKOL influence scoring"]
-            RAG["RAG Agent\nChromaDB cosine search\nPolicy + glossary retrieval\nTop-3 chunk context"]
+            SQL["SQL Agent\nLLM builds Cube.js JSON query"]
+            Graph["Graph Agent\nNeo4j Cypher executor"]
+            RAG["RAG Agent\nChromaDB cosine search"]
+            Catalog["Catalog Agent\nMetadata and schema search"]
         end
 
-        Validation["Validation Agent\nCube schema guardrails\nPrompt injection detection\nAPI error passthrough"]
-        Response["Response Agent\nCerebras gpt-oss-120b synthesis\nExecutive Summary format\nSource attribution + confidence"]
+        Aggregator["Result Aggregator\nMerges parallel outputs safely"]
+        Validation["Validation Agent\nCube schema guardrails"]
+        Visualization["Visualization Agent\nDetermines React chart types"]
+        Response["Response Agent\nGemini 1.5 Flash synthesis\nExecutive Summary format"]
+        Evaluation["Evaluation Agent\nLLM-as-a-judge scoring"]
 
         API --> Intent
         Intent --> Planner
         Planner --> SQL
         Planner --> Graph
         Planner --> RAG
-        SQL --> Validation
-        Graph --> Validation
-        RAG --> Validation
-        Validation --> Response
+        Planner --> Catalog
+        SQL --> Aggregator
+        Graph --> Aggregator
+        RAG --> Aggregator
+        Catalog --> Aggregator
+        Aggregator --> Validation
+        Validation --> Visualization
+        Visualization --> Response
+        Response --> Evaluation
     end
 
     subgraph DataLayer ["Data Layer"]
         direction LR
-        Cube["Cube.js v0.35\nSemantic Layer\nPre-aggregations\nGoverned metrics registry"]
-        PG[("PostgreSQL 15\ndim schema: HCP, Product, Territory\nfact schema: Sales, Rx, Interactions\n1,000 HCPs / 125K fact rows")]
-        Neo4j[("Neo4j 5.x\nHCP referral graph\nSalesRep visit graph\nProduct prescription graph")]
-        Chroma[("ChromaDB\nRAG collections: glossary / compliance / segmentation\n7 policy documents / 60+ chunks")]
-        LLM["Cerebras API\ngpt-oss-120b\n5-key rotation pool\nExponential backoff on 429"]
+        Cube["Cube.js v0.35\nSemantic Layer\nPre-aggregations"]
+        PG[("PostgreSQL 15\n22 Payer360 Tables\nPSU Claims, Sales, LAAD\nMCO Profiles & Formularies")]
+        Neo4j[("Neo4j 5.x\nMCO Hierarchies\nSubsidiary mappings")]
+        Chroma[("ChromaDB\nPayer360 Data Dictionary\nGlossary, Rules, FAQs")]
+        LLM["Google Gemini API\ngemini-1.5-flash\nDirect API integration"]
     end
 
     SQL -->|"Cube REST API\n/cubejs-api/v1/load"| Cube
     Cube --> PG
     Graph -->|"Bolt bolt://localhost:7687"| Neo4j
     RAG -->|"Cosine similarity search"| Chroma
+    Catalog -->|"Semantic match"| Chroma
     Response -->|"LLM synthesis"| LLM
-    Response -->|LLM synthesis| LLM
 
     Response --> API
     API -->|JSON answer + sources| UI
@@ -70,10 +79,10 @@ flowchart TD
 | Frontend | Next.js 14, Recharts, Framer Motion | Chat interface, live dashboard, role-based views |
 | API Layer | FastAPI, LangGraph | Multi-agent orchestration pipeline |
 | Semantic Layer | Cube.js | Governed metrics, pre-aggregations, REST API |
-| Analytical DB | PostgreSQL | Star schema: HCPs, sales, prescriptions, territories |
-| Graph DB | Neo4j | HCP referral networks, influence mapping |
-| Vector DB | ChromaDB | RAG knowledge retrieval: policies, glossary, FAQ |
-| LLM | Cerebras API | Intent classification, query generation, response synthesis |
+| Analytical DB | PostgreSQL | 22 Payer360 tables: PSU Claims, Sales, LAAD, Formulary |
+| Graph DB | Neo4j | MCO Hierarchies, parent/child mapping |
+| Vector DB | ChromaDB | RAG knowledge retrieval: Data Dictionary schemas and rules |
+| LLM | Google Gemini API | Intent classification, query generation, response synthesis |
 
 ---
 
@@ -86,25 +95,22 @@ sequenceDiagram
     participant I as Intent Agent
     participant P as Planner
     participant S as SQL Agent
-    participant G as Graph Agent
-    participant R as RAG Agent
-    participant V as Validation
+    participant Agg as Aggregator
     participant Res as Response Agent
-    participant LLM as Cerebras LLM
+    participant LLM as Gemini LLM
 
-    U->>A: "Show top cardiologists in Bangalore by Rx"
+    U->>A: "What is the market share by patient counts?"
     A->>I: classify intent + extract entities
     I->>LLM: intent classification prompt
-    LLM-->>I: analytics, {specialty: Cardiology, city: Bangalore}
+    LLM-->>I: analytics, {metric: market share}
     I->>P: intent=analytics, entities
     P->>S: build Cube query
     S->>LLM: Cube schema + question
     LLM-->>S: valid Cube JSON query
     S->>Cube.js: execute query
-    Cube.js-->>S: 10 rows of HCP performance data
-    S->>V: query_results
-    V-->>V: schema validation pass
-    V->>Res: state with results
+    Cube.js-->>S: Rows of PSU Claims data
+    S->>Agg: query_results
+    Agg->>Res: merged state with results
     Res->>LLM: executive summary prompt + data
     LLM-->>Res: structured answer
     Res-->>A: final_answer + sources + confidence
@@ -117,46 +123,31 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
-    HCP_MASTER {
-        string hcp_id PK
-        string specialty
-        string tier
-        float segmentation_score
-        boolean is_kol
-        int referral_count
-        string city
+    MCO_PROFILE {
+        string mdm_mco_id PK
+        string mdm_mco_name
+        string mdm_book_of_business
     }
-    PRODUCT_MASTER {
-        string product_id PK
-        string product_name
-        string therapeutic_area
+    FORMULARY_ROLLUP {
+        string payer_360_hashkey PK
+        string mdm_mco_id FK
+        string product_brand_name
+        string access_position
     }
-    TERRITORY_MASTER {
-        string territory_id PK
-        string territory_name
-        string region
+    PSU_CLAIMS {
+        string psu_claim_id PK
+        string mdm_mco_id FK
+        int patient_count
     }
-    SALES_FACT {
-        date sale_date
-        string hcp_id FK
-        string product_id FK
-        string territory_id FK
-        float net_sales
-        int units_sold
-    }
-    PRESCRIPTION_FACT {
-        date rx_date
-        string hcp_id FK
-        string product_id FK
-        int rx_count
-        int new_rx_count
+    SALES {
+        string sale_id PK
+        string mdm_mco_id FK
+        float sale_amount_usd
     }
 
-    HCP_MASTER ||--o{ SALES_FACT : "attributed to"
-    HCP_MASTER ||--o{ PRESCRIPTION_FACT : "written by"
-    PRODUCT_MASTER ||--o{ SALES_FACT : "sold as"
-    PRODUCT_MASTER ||--o{ PRESCRIPTION_FACT : "prescribed as"
-    TERRITORY_MASTER ||--o{ SALES_FACT : "sold in"
+    MCO_PROFILE ||--o{ FORMULARY_ROLLUP : "determines access"
+    MCO_PROFILE ||--o{ PSU_CLAIMS : "covers patients in"
+    MCO_PROFILE ||--o{ SALES : "drives sales via"
 ```
 
 ---
@@ -167,13 +158,12 @@ Documents ingested into ChromaDB at startup:
 
 | Collection | Document | Coverage |
 |---|---|---|
-| glossary | business_glossary.md | KPIs, tier definitions, metric formulas |
-| glossary | faq.md | General platform Q&A |
-| glossary | analytics_definitions.md | All Cube measures and dimensions explained |
-| glossary | common_business_questions.md | 30+ canonical Q&A pairs with real data |
-| compliance | pharma_compliance_policy.md | Off-label, SOPs, promotional rules |
-| compliance | hcp_tier_rules.md | Gold/Silver/Bronze classification criteria |
-| segmentation | call_planning_sop.md | Visit frequency, priority logic |
+| glossary | payer360_glossary.md | 1300+ Column definitions |
+| glossary | payer360_faq.md | 14 Q&A pairs from data dictionary |
+| glossary | payer360_tables.md | 29 Tables defined |
+| compliance | payer360_business_rules.md | Core logic for LAAD, Sales, etc. |
+| compliance | payer360_things_to_know.md | 1000+ caveats and rules |
+| catalog | payer360_catalog.md | Semantic column search |
 
 ---
 
@@ -191,7 +181,7 @@ Documents ingested into ChromaDB at startup:
 
 ```bash
 copy .env.example .env
-# Edit .env — add CEREBRAS_API_KEYS as a comma-separated pool of gpt-oss-120b keys
+# Edit .env — add GEMINI_API_KEY with your Google Gemini key
 ```
 
 ### 2. Start Docker (Postgres, Cube, Redis, Neo4j)
@@ -203,10 +193,8 @@ docker compose -f infrastructure/docker/docker-compose.yml up -d
 ### 3. Generate and load data
 
 ```bash
-cd data\seed
-pip install -r requirements.txt
-python generate_synthetic_data.py
-python load_to_postgres.py
+python scripts\generate_full_synthetic_db.py
+python scripts\load_payer360_to_postgres.py
 ```
 
 ### 4. Verify Cube
@@ -227,10 +215,9 @@ python load_graph.py
 ### 6. Start backend
 
 ```bash
-cd ..\..
 pip install -r backend\requirements.txt
 $env:PYTHONPATH = "C:\Users\YourUser\rags"
-python backend\scripts\ingest_rag.py
+python scripts\extract_payer360_rag.py
 uvicorn backend.main:app --reload --port 8000
 ```
 

@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Sparkles, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
+import { Send, Loader2, Sparkles, CheckCircle2, Circle, AlertTriangle, Network } from "lucide-react";
 import { ChartRenderer } from "@/components/charts/ChartRenderer";
 import { ChatResponse, sendChat } from "@/lib/api";
 import { ROLES, UserRole } from "@/lib/roles";
@@ -68,21 +68,25 @@ function FormattedAnswer({ text }: { text: string }) {
         const trimmed = line.trim();
         if (!trimmed) return <div key={i} className="h-1.5" />;
 
-        // Section headers (e.g. "Executive Summary", "Key Metrics:", "Primary Finding:")
+        // Section headers
         if (trimmed.endsWith(":") || trimmed === "Executive Summary") {
           return (
             <p key={i} className="mt-2.5 text-xs font-semibold uppercase tracking-wider text-pulse-700 first:mt-0">
-              {trimmed.replace(/:$/, "")}
+              {trimmed.replace(/:$/, "").replace(/\*\*/g, "")}
             </p>
           );
         }
 
         // Bullet points
-        if (trimmed.startsWith("•") || trimmed.startsWith("-") || trimmed.startsWith("*")) {
+        if (trimmed.startsWith("•") || trimmed.startsWith("-") || trimmed.startsWith("* ")) {
+          const content = trimmed.replace(/^[•\-*]\s*/, "");
+          const parts = content.split(/\*\*(.*?)\*\*/g);
           return (
             <div key={i} className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pulse-500" />
-              <span className="text-clinical-ink">{trimmed.replace(/^[•\-*]\s*/, "")}</span>
+              <span className="text-clinical-ink">
+                {parts.map((p, j) => (j % 2 === 1 ? <strong key={j} className="font-semibold">{p}</strong> : p))}
+              </span>
             </div>
           );
         }
@@ -90,17 +94,27 @@ function FormattedAnswer({ text }: { text: string }) {
         // Numbered lines
         if (/^\d+\./.test(trimmed)) {
           const [num, ...rest] = trimmed.split(". ");
+          const content = rest.join(". ");
+          const parts = content.split(/\*\*(.*?)\*\*/g);
           return (
             <div key={i} className="flex gap-2.5">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pulse-100 text-[10px] font-bold text-pulse-700">
                 {num}
               </span>
-              <span className="text-clinical-ink">{rest.join(". ")}</span>
+              <span className="text-clinical-ink">
+                {parts.map((p, j) => (j % 2 === 1 ? <strong key={j} className="font-semibold">{p}</strong> : p))}
+              </span>
             </div>
           );
         }
 
-        return <p key={i} className="text-clinical-ink">{trimmed}</p>;
+        // Default line
+        const parts = trimmed.split(/\*\*(.*?)\*\*/g);
+        return (
+          <p key={i} className="text-clinical-ink">
+            {parts.map((p, j) => (j % 2 === 1 ? <strong key={j} className="font-semibold">{p}</strong> : p))}
+          </p>
+        );
       })}
     </div>
   );
@@ -174,6 +188,93 @@ function ErrorPanel({ message }: { message: string }) {
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Graph/Tree Renderer ──────────────────────────────────────────────────────
+function buildChartSpec(meta: ChatResponse): any {
+  const rawChart = meta.chart as any;
+  if (!rawChart) return null;
+
+  if (rawChart.data && rawChart.xKey && rawChart.yKeys) {
+    return rawChart;
+  }
+
+  const type = rawChart.chart || rawChart.type;
+  if (!type || type === "tree" || type === "network") return null;
+
+  const data = meta.data;
+  if (!data || data.length === 0) return null;
+
+  const keys = Object.keys(data[0]);
+  const yKeys = keys.filter((k) => {
+    const val = data[0][k];
+    return val !== null && val !== "" && !isNaN(Number(val)) && typeof val !== "boolean";
+  });
+  const xKeys = keys.filter((k) => !yKeys.includes(k));
+
+  const xKey = xKeys.length > 0 ? xKeys[0] : keys[0];
+  if (yKeys.length === 0) return null;
+
+  return {
+    type: ["bar", "line", "pie", "scatter"].includes(type) ? type : "bar",
+    data,
+    xKey,
+    yKeys,
+    title: "Analytics Data",
+  };
+}
+
+function formatGraphValue(val: any): React.ReactNode {
+  if (Array.isArray(val)) {
+    return (
+      <div className="flex flex-col gap-1 text-right items-end mt-1">
+        {val.map((item, idx) => (
+          <span key={idx} className="rounded bg-pulse-100 px-2 py-0.5 text-[10px] text-pulse-800">
+            {typeof item === "object" && item !== null ? item.mcoName || item.mco_name || item.name || JSON.stringify(item) : String(item)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (typeof val === "object" && val !== null) {
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
+
+function GraphRenderer({ meta }: { meta: ChatResponse }) {
+  const chartType = (meta.chart as any)?.chart || (meta.chart as any)?.type;
+  if (chartType !== "tree" && chartType !== "network") return null;
+  if (!meta.graph_data || meta.graph_data.length === 0) return null;
+
+  return (
+    <div className="chart-card overflow-hidden text-sm">
+      <div className="mb-4 flex items-center justify-between border-b border-clinical-border pb-3">
+        <div className="flex items-center gap-2">
+          <Network className="h-4 w-4 text-pulse-600" />
+          <h3 className="font-semibold text-clinical-ink">Neo4j Network</h3>
+        </div>
+        <span className="rounded-md bg-pulse-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-pulse-700">
+          {chartType}
+        </span>
+      </div>
+      <div className="space-y-3">
+        {meta.graph_data.map((node: any, i: number) => {
+          const keys = Object.keys(node);
+          return (
+            <div key={i} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              {keys.map((k) => (
+                <div key={k} className="flex justify-between gap-4 py-1.5 border-b border-slate-100 last:border-0">
+                  <span className="text-xs font-medium text-slate-500 capitalize">{k.replace(/_/g, " ")}</span>
+                  <div className="text-xs text-clinical-ink text-right max-w-[65%]">{formatGraphValue(node[k])}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -376,13 +477,22 @@ export function ChatInterface() {
       {/* Side panel */}
       <div className="space-y-4 lg:col-span-2">
         <AnimatePresence>
-          {lastMeta?.chart && (
+          {lastMeta && ((lastMeta.chart as any)?.chart === "tree" || (lastMeta.chart as any)?.chart === "network" || (lastMeta.chart as any)?.type === "tree") && (
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
-              <ChartRenderer spec={lastMeta.chart} />
+              <GraphRenderer meta={lastMeta} />
+            </motion.div>
+          )}
+          {lastMeta && buildChartSpec(lastMeta) && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ChartRenderer spec={buildChartSpec(lastMeta)} />
             </motion.div>
           )}
         </AnimatePresence>

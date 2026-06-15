@@ -1,4 +1,4 @@
-"""ChromaDB vector store client."""
+"""ChromaDB vector store client — Payer360 collections."""
 
 from __future__ import annotations
 
@@ -13,12 +13,30 @@ from backend.utils.config import settings
 
 RAG_ROOT = Path(__file__).resolve().parents[2] / "data" / "rag"
 
+# ── Payer360 collections ───────────────────────────────────────────────────────
 COLLECTIONS = {
-    "compliance": RAG_ROOT / "compliance",
-    "products": RAG_ROOT / "products",
-    "glossary": RAG_ROOT / "glossary",
-    "segmentation": RAG_ROOT / "segmentation",
-    "sales_guidelines": RAG_ROOT / "sales_guidelines",
+    "payer360_knowledge": RAG_ROOT / "payer360",   # glossary + tables + business rules + catalog
+    "payer360_faq":       RAG_ROOT / "payer360",   # Q&A pairs — filtered by filename below
+    "payer360_caveats":   RAG_ROOT / "payer360",   # things to know — filtered by filename below
+}
+
+# Map collection → which files it ingests (None = all files in dir)
+COLLECTION_FILES: dict[str, list[str] | None] = {
+    "payer360_knowledge": [
+        "payer360_glossary.md",
+        "payer360_tables.md",
+        "payer360_business_rules.md",
+        "payer360_catalog.md",
+        "customer_queries.md",
+    ],
+    "payer360_faq": [
+        "payer360_faq.md",
+        "customer_queries.md",
+    ],
+    "payer360_caveats": [
+        "payer360_things_to_know.md",
+        "payer360_business_rules.md",
+    ],
 }
 
 
@@ -46,7 +64,6 @@ class ChromaRAG:
             collection = self._get_or_create(collection_name)
 
             if force:
-                # Delete and recreate so new documents are picked up
                 try:
                     self.client.delete_collection(collection_name)
                 except Exception:
@@ -56,12 +73,20 @@ class ChromaRAG:
                 counts[collection_name] = collection.count()
                 continue
 
+            # Get the list of files for this collection
+            allowed_files = COLLECTION_FILES.get(collection_name)
+
             all_chunks = []
             for md_file in dir_path.glob("**/*.md"):
+                if allowed_files and md_file.name not in allowed_files:
+                    continue
                 text = md_file.read_text(encoding="utf-8")
-                overlap = 0 if collection_name == "glossary" else 64
-                size = 300 if collection_name == "glossary" else 512
-                chunks = chunk_text(text, str(md_file.name), collection_name, size, overlap)
+                # Use smaller chunks for glossary/catalog, larger for rules/faq
+                if "glossary" in md_file.name or "catalog" in md_file.name or "tables" in md_file.name:
+                    size, overlap = 400, 50
+                else:
+                    size, overlap = 600, 100
+                chunks = chunk_text(text, md_file.name, collection_name, size, overlap)
                 all_chunks.extend(chunks)
 
             if all_chunks:

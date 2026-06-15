@@ -1,0 +1,240 @@
+{
+  "Oasis Payer360 - Summary": {
+    "columns": [
+      "C",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Unnamed: 5",
+      "Unnamed: 6"
+    ],
+    "rows": 29
+  },
+  "Version Log": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4"
+    ],
+    "rows": 64
+  },
+  "Query Log": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4"
+    ],
+    "rows": 22
+  },
+  "Reference SQL Queries": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4"
+    ],
+    "rows": 34
+  },
+  "MCO Profile & Hierarchy - Norma": {
+    "columns": [
+      "oa",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know",
+      "Unnamed: 6",
+      "Unnamed: 7",
+      "Unnamed: 8",
+      "Unnamed: 9"
+    ],
+    "rows": 79
+  },
+  "Formulary and Access": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Unnamed: 5"
+    ],
+    "rows": 505
+  },
+  "Sheet30": {
+    "columns": [
+      "cut off",
+      "access gneius ready"
+    ],
+    "rows": 3
+  },
+  "Copy of Payer360 GPO claims": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3"
+    ],
+    "rows": 62
+  },
+  "Formulary ProductPayerHPMPEN St": {
+    "columns": [
+      "S. No.",
+      "Category",
+      "Sub-category",
+      "Source Table Name",
+      "Source Column Name",
+      "Source Column Description",
+      "Source Data Type",
+      "Required?",
+      "Transformation",
+      "Target Table Name",
+      "Target Column Name",
+      "Target Data Type"
+    ],
+    "rows": 1
+  },
+  "Plantrak Sales w WAC dollar val": {
+    "columns": [],
+    "rows": 0
+  },
+  "MCO-HCP Rollup": {
+    "columns": [],
+    "rows": 0
+  },
+  "Formulary Payer Lives": {
+    "columns": [
+      "S. No.",
+      "Category",
+      "Sub-category",
+      "Source Table Name",
+      "Source Column Name",
+      "Source Column Description",
+      "Source Data Type",
+      "Required?",
+      "Transformation",
+      "Target Table Name",
+      "Target Column Name",
+      "Target Data Type"
+    ],
+    "rows": 1
+  },
+  "Precision AQ": {
+    "columns": [
+      "Unnamed: 0",
+      "Oasis Table Name",
+      "Column Name",
+      "Keys",
+      "Data Type",
+      "Description"
+    ],
+    "rows": 69
+  },
+  "MCO Lives - Base Fact and Aggre": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Unnamed: 5"
+    ],
+    "rows": 76
+  },
+  "LAAD Claims - Base Fact & Aggre": {
+    "columns": [
+      "Unnamed: 0",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know:"
+    ],
+    "rows": 149
+  },
+  "Annual Book Of Business": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Schema : oasis_normalized\nTable Name : payer_360_annual_book_of_business",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Unnamed: 5"
+    ],
+    "rows": 15
+  },
+  "Sales - Base Fact & Aggregate": {
+    "columns": [
+      "Unnamed: 0",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know:"
+    ],
+    "rows": 114
+  },
+  "Sales indication- Base Fact & A": {
+    "columns": [
+      "Unnamed: 0",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know:"
+    ],
+    "rows": 120
+  },
+  "GPO Claims - Norm & GPO Claims ": {
+    "columns": [
+      "Unnamed: 0",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know:"
+    ],
+    "rows": 144
+  },
+  "PSU Claims - Norm & PSU Aggrega": {
+    "columns": [
+      "Unnamed: 0",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know:",
+      "Unnamed: 6",
+      "Unnamed: 7",
+      "Unnamed: 8"
+    ],
+    "rows": 129
+  },
+  "Provider Payer Mix - Summarized": {
+    "columns": [
+      "Unnamed: 0",
+      "Table and Attributes",
+      "Sample Questions answered",
+      "Unnamed: 3",
+      "Unnamed: 4",
+      "Things to know:"
+    ],
+    "rows": 29
+  },
+  "Rollups Delta Tables": {
+    "columns": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4"
+    ],
+    "rows": 142
+  }
+}

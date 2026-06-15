@@ -1,76 +1,139 @@
-"""Parameterized Cypher query templates — no free-form destructive ops."""
+"""Parameterized Cypher query templates for Payer360 MCO hierarchy — no destructive ops."""
 
 from __future__ import annotations
 
 TEMPLATES: dict[str, dict] = {
-    "top_referrers": {
-        "description": "HCPs with largest outbound referral network",
+    "mco_hierarchy": {
+        "description": "Show full hierarchy tree for a given MCO (3 levels deep)",
         "cypher": """
-            MATCH (h:HCP)-[r:REFERS]->(target:HCP)
-            WITH h, count(target) AS referral_out, sum(r.strength) AS total_strength
-            RETURN h.name AS hcp_name, h.specialty AS specialty, h.city AS city,
-                   h.tier AS tier, referral_out, round(total_strength, 2) AS strength
-            ORDER BY referral_out DESC, total_strength DESC
-            LIMIT $limit
+            MATCH (root:MCO)
+            WHERE toLower(root.name) CONTAINS toLower($mco_name)
+            OPTIONAL MATCH (root)-[:PARENT_OF*1..3]->(child:MCO)
+            RETURN root.name AS root_mco, root.type AS root_type,
+                   root.book_of_business AS root_bob,
+                   collect(DISTINCT {
+                       name: child.name,
+                       type: child.type,
+                       book_of_business: child.book_of_business,
+                       region: child.region
+                   }) AS children
+            LIMIT 1
         """,
-        "params": ["limit"],
+        "params": ["mco_name"],
     },
-    "referral_network": {
-        "description": "Referral network for a specific HCP",
+    "mco_parent": {
+        "description": "Find the parent MCO of a given MCO",
         "cypher": """
-            MATCH (h:HCP)
-            WHERE toLower(h.name) CONTAINS toLower($hcp_name)
-            OPTIONAL MATCH (h)-[r:REFERS]->(target:HCP)
-            RETURN h.name AS source, h.tier AS tier, h.specialty AS specialty,
-                   collect({name: target.name, specialty: target.specialty, strength: r.strength}) AS referrals
+            MATCH (parent:MCO)-[:PARENT_OF]->(child:MCO)
+            WHERE toLower(child.name) CONTAINS toLower($mco_name)
+            RETURN parent.name AS parent_mco, parent.type AS parent_type,
+                   parent.book_of_business AS parent_bob,
+                   child.name AS child_mco
             LIMIT 5
         """,
-        "params": ["hcp_name"],
+        "params": ["mco_name"],
     },
-    "influence_network": {
-        "description": "HCPs who influence the largest referral networks (multi-hop)",
+    "mco_children": {
+        "description": "List direct child MCOs of a given parent MCO",
         "cypher": """
-            MATCH (h:HCP)-[:REFERS*1..2]->(influenced:HCP)
-            WITH h, count(DISTINCT influenced) AS influenced_count
-            RETURN h.name AS hcp_name, h.specialty AS specialty, h.tier AS tier,
-                   influenced_count
-            ORDER BY influenced_count DESC
+            MATCH (parent:MCO)-[:PARENT_OF]->(child:MCO)
+            WHERE toLower(parent.name) CONTAINS toLower($mco_name)
+            RETURN parent.name AS parent_mco,
+                   child.name AS child_name,
+                   child.type AS child_type,
+                   child.book_of_business AS child_bob,
+                   child.region AS region
+            ORDER BY child.name
             LIMIT $limit
         """,
-        "params": ["limit"],
+        "params": ["mco_name", "limit"],
     },
-    "hcp_prescribing": {
-        "description": "Products prescribed by HCP",
+    "mco_benefit_types": {
+        "description": "Show benefit types for a given MCO",
         "cypher": """
-            MATCH (h:HCP)-[p:PRESCRIBES]->(prod:Product)
-            WHERE toLower(h.name) CONTAINS toLower($hcp_name)
-            RETURN h.name AS hcp_name, prod.name AS product, prod.therapeutic_area AS area,
-                   p.rx_count AS rx_count
-            ORDER BY p.rx_count DESC
+            MATCH (m:MCO)-[:HAS_BENEFIT_TYPE]->(b:BenefitType)
+            WHERE toLower(m.name) CONTAINS toLower($mco_name)
+            RETURN m.name AS mco_name, collect(b.name) AS benefit_types
+            LIMIT 5
+        """,
+        "params": ["mco_name"],
+    },
+    "mcos_by_book_of_business": {
+        "description": "List all MCOs under a given book of business",
+        "cypher": """
+            MATCH (m:MCO)-[:BELONGS_TO]->(b:BookOfBusiness)
+            WHERE toLower(b.name) CONTAINS toLower($book_of_business)
+            RETURN m.name AS mco_name, m.type AS mco_type, b.name AS book_of_business
+            ORDER BY m.name
+            LIMIT $limit
+        """,
+        "params": ["book_of_business", "limit"],
+    },
+    "national_mcos": {
+        "description": "List all national MCOs",
+        "cypher": """
+            MATCH (m:MCO {is_national: true})
+            RETURN m.name AS mco_name, m.type AS mco_type,
+                   m.book_of_business AS book_of_business
+            ORDER BY m.name
             LIMIT 20
         """,
-        "params": ["hcp_name"],
+        "params": [],
     },
-    "rep_coverage_gaps": {
-        "description": "Gold tier HCPs with low rep visit counts",
+    "mco_full_profile": {
+        "description": "Full profile of an MCO including parent, children, and benefit types",
         "cypher": """
-            MATCH (h:HCP {tier: 'Gold'})
-            OPTIONAL MATCH (r:SalesRep)-[v:VISITS]->(h)
-            WITH h, coalesce(sum(v.count), 0) AS visits
-            WHERE visits < 3
-            RETURN h.name AS hcp_name, h.city AS city, h.specialty AS specialty, visits
-            ORDER BY visits ASC
-            LIMIT $limit
+            MATCH (m:MCO)
+            WHERE toLower(m.name) CONTAINS toLower($mco_name)
+            OPTIONAL MATCH (parent:MCO)-[:PARENT_OF]->(m)
+            OPTIONAL MATCH (m)-[:PARENT_OF]->(child:MCO)
+            OPTIONAL MATCH (m)-[:HAS_BENEFIT_TYPE]->(bt:BenefitType)
+            OPTIONAL MATCH (m)-[:BELONGS_TO]->(bob:BookOfBusiness)
+            RETURN m.name AS mco_name, m.type AS mco_type,
+                   parent.name AS parent_name,
+                   collect(DISTINCT child.name) AS children,
+                   collect(DISTINCT bt.name) AS benefit_types,
+                   bob.name AS book_of_business
+            LIMIT 1
         """,
-        "params": ["limit"],
+        "params": ["mco_name"],
     },
 }
+
+
+def select_template(question: str, entities: dict) -> tuple[str, dict]:
+    """Select the best Cypher template for a hierarchy question."""
+    q = question.lower()
+    mco_name = entities.get("mco_name", "")
+    bob = entities.get("book_of_business", "")
+    limit = entities.get("limit", 10)
+
+    if bob and not mco_name:
+        return TEMPLATES["mcos_by_book_of_business"]["cypher"], {
+            "book_of_business": bob, "limit": limit
+        }
+
+    if "parent" in q or "who owns" in q or "owned by" in q:
+        return TEMPLATES["mco_parent"]["cypher"], {"mco_name": mco_name or ""}
+
+    if "children" in q or "child" in q or "plans under" in q or "owns" in q:
+        return TEMPLATES["mco_children"]["cypher"], {"mco_name": mco_name or "", "limit": limit}
+
+    if "benefit type" in q or "benefit types" in q:
+        return TEMPLATES["mco_benefit_types"]["cypher"], {"mco_name": mco_name or ""}
+
+    if "national" in q and not mco_name:
+        return TEMPLATES["national_mcos"]["cypher"], {}
+
+    if mco_name:
+        return TEMPLATES["mco_hierarchy"]["cypher"], {"mco_name": mco_name}
+
+    # Fallback: list all national MCOs
+    return TEMPLATES["national_mcos"]["cypher"], {}
 
 
 def validate_cypher(cypher: str) -> bool:
     """Block destructive Cypher operations."""
     upper = cypher.upper()
-    blocked = ["DELETE", "DETACH", "DROP", "CREATE INDEX", "REMOVE", "SET ", "MERGE"]
-    # Allow MERGE only in load scripts, not agent queries
-    agent_blocked = ["DELETE", "DETACH", "DROP", "CREATE ", "REMOVE", "MERGE", "SET "]
-    return not any(b in upper for b in agent_blocked)
+    blocked = ["DELETE", "DETACH", "DROP", "CREATE INDEX", "REMOVE", "SET ", "MERGE", "CREATE "]
+    return not any(b in upper for b in blocked)
